@@ -28,18 +28,23 @@ if [ -z $STUNNEL_URLS ]; then
     STUNNEL_URLS="DATABASE_URL"
 fi
 
-for STUNNEL_URL in $STUNNEL_URLS
-do
-  eval STUNNEL_URL_VALUE=\$$STUNNEL_URL
+for STUNNEL_URL in "$STUNNEL_URLS"; do
+  eval STUNNEL_URL_VALUE="\$$STUNNEL_URL"
 
-  IFS=':' read DB_USER DB_PASS DB_HOST DB_PORT DB_NAME <<< \
-     $(echo $STUNNEL_URL_VALUE | perl -lne 'print "$1:$2:$3:$4:$5" if /^postgres(?:ql)?:\/\/([^:@]*)(?::([^@]*))?@([^:\/]*?)(?::(.*?))?\/(.*?)$/')
 
-  if [ ! -z $DB_PASS ]; then
-      DB_USER=$DB_USER:$DB_PASS
+  parts=( $(echo "$STUNNEL_URL_VALUE" | perl -lne 'print "$1 $2 $3 $4 $5" if /^postgres(?:ql)?:\/\/([^:@]*)(?::([^@]*))?@([^:\/]*?)(?::(.*?))?\/(.*?)$/') )
+
+  DB_USER="${parts[0]}"
+  DB_PASS="${parts[1]}"
+  DB_HOST="${parts[2]}"
+  DB_PORT="${parts[3]}"
+  DB_NAME="${parts[4]}"
+
+  if [[ -n $DB_PASS ]]; then
+      DB_USER="$DB_USER:$DB_PASS"
   fi
-  export ${STUNNEL_URL}=postgres://$DB_USER@:610${n}/$DB_NAME
-  echo "Setting \$${STUNNEL_URL} environment var to " $(eval echo \$$STUNNEL_URL)
+  export ${STUNNEL_URL}="postgres://$DB_USER@:610${n}/$DB_NAME"
+  echo "Setting \$${STUNNEL_URL} environment var to $(eval echo \$$STUNNEL_URL)"
 
   cat >> /app/vendor/stunnel/stunnel.conf << EOFEOF
 [postgresql-${STUNNEL_URL}]
@@ -49,6 +54,13 @@ accept  = /tmp/.s.PGSQL.610${n}
 connect = $DB_HOST:$DB_PORT
 retry = ${STUNNEL_CONNECTION_RETRY:-"no"}
 EOFEOF
+
+  if [[ -n ${STUNNEL_CA_FILE} ]]; then
+      cat >> /app/vendor/stunnel/stunnel.conf << EOFEOF
+verify = 1
+CAfile = ${STUNNEL_CA_FILE:-/dev/null}
+EOFEOF
+  fi
 
   let "n += 1"
 done

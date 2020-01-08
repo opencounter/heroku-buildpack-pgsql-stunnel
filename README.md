@@ -57,3 +57,5 @@ Redis:
 `STUNNEL_LOGLEVEL` : `debug` config option for stunnel (default `notice`).
 
 `STUNNEL_CONNECTION_RETRY` : `retry` config option for stunnel (default `no`).
+
+`STUNNEL_CA_FILE` : `CAfile` option for stunnel; if provided, also sets `verify = 1`
